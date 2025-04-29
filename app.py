@@ -3,11 +3,11 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_socketio import SocketIO, send, emit
 import os
+import uuid
 from flask_login import LoginManager, UserMixin, login_user, current_user, logout_user, login_required
 
 # Set up the Flask application
 app = Flask(__name__)
-
 app.config['SECRET_KEY'] = 'your_secret_key'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 db = SQLAlchemy(app)
@@ -16,13 +16,19 @@ login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 socketio = SocketIO(app)
 
+from flask import Flask, jsonify, request
+from flask_socketio import SocketIO, send, emit
+
 # Store connected users in a set
 connected_users = set()
 # Store messages to reload them on new connections
 messages = []
 
+@app.route('/chat_users')
+def chat_users():
+    # Return the count of connected users
+    return jsonify({'count': len(connected_users)})
 
-#community chat msg code start here---------------------------------------------------------------------------->
 @socketio.on('message')
 def handle_message(data):
     # Store the message in the messages list
@@ -53,6 +59,44 @@ def handle_disconnect():
     emit('connectedUsers', len(connected_users), broadcast=True)
 
 
+
+
+
+#tournamment section start here========== >
+# Path where uploaded images will be stored
+UPLOAD_FOLDER = 'static/'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+# Route to handle image upload
+@app.route('/upload-image', methods=['POST'])
+def upload_image():
+    if 'file' not in request.files:
+        return 'No file part'
+    
+    file = request.files['file']
+    
+    if file.filename == '':
+        return 'No selected file'
+    
+    if file:
+        # Save the uploaded image to the static folder
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], 'hero.webp'))  # Saving as hero.webp
+        return redirect(url_for('tournament'))
+@app.route('/tournament')
+def tournament():
+    if not current_user.is_authenticated:
+        flash("You need to login first to view this section.")
+        return redirect(url_for('login'))
+    # Render the community page
+    
+    return render_template('tournament.html', username=current_user.username)
+ 
+    
+    
+    
+    
+#tournamment section start here========== >
+
+
 # User model definition
 #user database defination ---------------------------------------------->
 class User(db.Model, UserMixin):
@@ -74,7 +118,14 @@ def community():
     # Render the community page
     
     return render_template('community.html', username=current_user.username)
-
+@app.route('/forum')
+def forum():
+    if not current_user.is_authenticated:
+        flash("You need to login first to view this section.")
+        return redirect(url_for('login'))
+    # Render the community page
+    
+    return render_template('forum.html', username=current_user.username)
 @app.route('/leader')
 def leader_board():
     if not current_user.is_authenticated:
@@ -127,6 +178,7 @@ def login():
         password = request.form['password']
         user = User.query.filter_by(email=email).first()
         if user and bcrypt.check_password_hash(user.password, password):
+            print(user.password, password)
             login_user(user)
             flash('Login successful', 'success')
             return redirect(url_for('home'))
@@ -174,6 +226,8 @@ app.config['MAIL_SERVER'] = 'smtp.gmail.com'  # Use Gmail SMTP server
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')  # Your email address
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')  # Your email password or app password
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_USERNAME')  # Default sender
+
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USE_SSL'] = False
 
@@ -198,6 +252,25 @@ def send_confirmation_email(email, amount, currency, transaction_id, selected_pd
 
     msg.body += "\n\nBest regards,\nYour Company"
     mail.send(msg)
+def send_confirmation_email_registration(email, name, player_id, tournament_no):
+    subject = "Tournament Registration Confirmation"
+    body = f"""
+    Dear {name},
+
+    Thank you for registering for Tournament #{tournament_no}!
+
+    Your registration has been successfully processed.
+    Your Player ID: {player_id}
+
+    We look forward to seeing you in the tournament.
+
+    Best regards,
+    Tournament Organizers
+    """
+
+    msg = Message(subject=subject, recipients=[email], body=body, sender=os.getenv('MAIL_USERNAME'))
+    mail.send(msg)
+
 
 
 @app.route('/')
@@ -342,7 +415,8 @@ def admin_dashboard():
     ]
     
     users = User.query.all()
-    return render_template('admin_dashboard.html', notifications=notifications, users=users)
+    registrations = Registration.query.all()
+    return render_template('admin_dashboard.html', notifications=notifications, users=users, registrations=registrations)
 
 
 
@@ -450,7 +524,142 @@ def send_confirmation_email_for_newsletter(email):
 
 
 
+
+class Registration(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    player_id = db.Column(db.String(50), unique=True, nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(100), nullable=False)
+    game_id = db.Column(db.String(100), nullable=False)
+    server = db.Column(db.String(100), nullable=False)
+    tournament_no = db.Column(db.String(100), nullable=False)
+    clan_name = db.Column(db.String(100), nullable=False)
+
+
+
+@app.route('/register', methods=['POST'])
+def register():
+    # Retrieve form data
+    name = request.form['name']
+    email = request.form['email']
+    game_id = request.form['game_id']
+    server = request.form['server']
+    tournament_no = request.form['tournament_no']
+    clan_name = request.form['clan_name']
+    
+    # Generate a unique Player ID
+    player_id = str(uuid.uuid4())  # Generate a unique ID for the player
+
+    # Store registration details in the database
+    registration = Registration(
+        player_id=player_id,
+        name=name,
+        email=email,
+        game_id=game_id,
+        server=server,
+        tournament_no=tournament_no,
+        clan_name=clan_name
+    )
+    db.session.add(registration)
+    db.session.commit()
+
+    # Create a PayPal payment object
+    payment = paypalrestsdk.Payment({
+        "intent": "sale",
+        "payer": {
+            "payment_method": "paypal"
+        },
+        "redirect_urls": {
+            "return_url": url_for('payment_successful', player_id=player_id, _external=True),
+            "cancel_url": url_for('payment_cancelled', _external=True)
+        },
+        "transactions": [{
+            "item_list": {
+                "items": [{
+                    "name": f"Tournament Registration #{tournament_no}",
+                    "sku": "tournament",
+                    "price": "10.00",  # Set your tournament registration fee
+                    "currency": "USD",
+                    "quantity": 1
+                }]
+            },
+            "amount": {
+                "total": "10.00",  # Same as price
+                "currency": "USD"
+            },
+            "description": f"Registration for Tournament #{tournament_no} by {name} (Clan: {clan_name})"
+        }]
+    })
+
+    # Create the payment
+    if payment.create():
+        for link in payment['links']:
+            if link['rel'] == 'approval_url':
+                return redirect(link['href'])
+    else:
+        return "Error while processing the payment"
+@app.route('/payment-success')
+def payment_successful():
+    player_id = request.args.get('player_id')
+    payment_id = request.args.get('paymentId')
+    payer_id = request.args.get('PayerID')
+
+    # Execute the payment
+    payment = paypalrestsdk.Payment.find(payment_id)
+    if payment.execute({"payer_id": payer_id}):
+        # Retrieve player information from the database
+        registration = Registration.query.filter_by(player_id=player_id).first()
+        if registration:
+            # Send confirmation email
+            send_confirmation_email_registration(
+                registration.email,
+                registration.name,
+                registration.player_id,
+                registration.tournament_no
+            )
+            return f"Payment completed successfully! Your Player ID: {player_id}"
+        else:
+            return "Registration information not found."
+    else:
+        return "Payment failed!"
+
+@app.route('/payment-cancelled')
+def payment_cancelled():
+    return "Payment was cancelled."
+
+def send_confirmation_email_registration(email, name, player_id, tournament_no):
+    subject = "Tournament Registration Confirmation"
+    body = f"""
+    Dear {name},
+
+    Thank you for registering for Tournament #{tournament_no}!
+
+    Your registration has been successfully processed.
+    Your Player ID: {player_id}
+
+    We look forward to seeing you in the tournament.
+
+    Best regards,
+    Tournament Organizers
+    """
+
+    msg = Message(subject=subject, recipients=[email], body=body)
+    mail.send(msg)
+
+
+
+
+#registratuion form section deletion by admin code logic================================================================
 #news letter subsciptuion logic end here
+@app.route('/delete-registration/<int:id>', methods=['POST'])
+def delete_registration(id):
+    registration = Registration.query.get_or_404(id)
+    db.session.delete(registration)
+    db.session.commit()
+    return redirect(url_for('admin_dashboard'))
+#registratuion form section deletion by admin code logic================================================================
+
+
 # Run the application
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=True)
