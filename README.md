@@ -1,6 +1,6 @@
 # 🏰 EmpireX - March of Empires 
 
-![EmpireX Banner](img1.jpg) <!-- Replace with your actual banner image -->
+![EmpireX Banner](img1.png) <!-- Replace with your actual banner image -->
 
 > **A Medieval Fantasy MMO Strategy Game**  
 > Build your empire, forge alliances, and conquer the realm in this immersive multiplayer experience!
@@ -148,7 +148,7 @@ gantt
   
 | Dashboard | Battle Screen | Alliance View |
 |-----------|---------------|---------------|
-| ![Dashboard](img4.jpg) | ![Battle](img2.jpg) | ![Alliance](img3.jpg) |
+| ![Dashboard](img4.png) | ![Battle](img2.png) | ![Alliance](img3.png) |
 | <img src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcWZzZ3Z6a2V5b2h4a3VtY3F4bHZ5dW5qYzZ4eGJtbmN6dWJ6bGZ5eSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o7TKsQ8gqVrX3Goni/giphy.gif" width="20"> **Player Dashboard** | <img src="https://media.giphy.com/media/XcQ7ztqbIKFQ5QxY0O/giphy.gif" width="20"> **Battle Interface** | <img src="https://media.giphy.com/media/jTq2iPspQAkqBUWQv3/giphy.gif" width="20"> **Alliance Management** |
 
 </div>
