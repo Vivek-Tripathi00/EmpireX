@@ -191,16 +191,38 @@ def login():
 def signup():
     if current_user.is_authenticated:
         return redirect(url_for('home'))
+
     if request.method == 'POST':
-        username = request.form['username']
-        email = request.form['email']
-        password = request.form['password']
+        username = request.form.get('username')
+        email = request.form.get('email')
+        password = request.form.get('password')
+
+        # 🔴 Check if user already exists
+        existing_user = User.query.filter(
+            (User.email == email) | (User.username == username)
+        ).first()
+
+        if existing_user:
+            flash('Email or Username already exists!', 'danger')
+            return redirect(url_for('signup'))
+
+        # Hash password
         hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+
+        # Create user
         user = User(username=username, email=email, password=hashed_password)
-        db.session.add(user)
-        db.session.commit()
-        flash('Your account has been created!', 'success')
-        return redirect(url_for('login'))
+
+        try:
+            db.session.add(user)
+            db.session.commit()
+            flash('Your account has been created!', 'success')
+            return redirect(url_for('login'))
+
+        except Exception as e:
+            db.session.rollback()
+            flash('Something went wrong. Try again.', 'danger')
+            print(e)
+
     return render_template('signup.html')
 
 
