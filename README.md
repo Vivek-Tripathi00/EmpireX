@@ -17,7 +17,7 @@
 
 🌐 Live Demo
 Experience the game at:
-https://empirex-production.up.railway.app/
+https://empirex.onrender.com
 
 
 ## ✨ Features
